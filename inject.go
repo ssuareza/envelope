@@ -52,3 +52,41 @@ func (s *Envelope) InjectEncrypted(alias string, input io.Reader, key string, va
 
 	return ret, nil
 }
+
+// InjectNotEncrypted inject the secret not encrypted. This can be used together with Encrypt()
+func (s *Envelope) InjectNotEncrypted(alias string, input io.Reader, key string, value []byte, format string) ([]byte, error) {
+	codec, err := codecForFormat(format)
+	if err != nil {
+		return []byte(""), merry.Wrap(err).WithUserMessage("unrecognized format").WithValue("format", format)
+	}
+
+	var inputData interface{}
+	inputBytes, err := ioutil.ReadAll(input)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	err = codec.Unmarshal(inputBytes, &inputData)
+	if err != nil {
+		return []byte(""), merry.Wrap(err).WithUserMessage("could not decode input").WithValue("format", format)
+	}
+
+	encrypted := value
+
+	if err != nil {
+		return []byte(""), err
+	}
+
+	splitKey := strings.Split(key, ".")
+	err = traverser.SetKey(inputData, splitKey, string(encrypted))
+	if err != nil {
+		return []byte(""), merry.Wrap(err).WithValue("key", key)
+	}
+
+	ret, err := codec.Marshal(&inputData)
+	if err != nil {
+		return []byte(""), merry.Wrap(err).WithUserMessage("error marshalling output")
+	}
+
+	return ret, nil
+}
